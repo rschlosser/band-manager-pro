@@ -9,7 +9,7 @@ to fit any band or ensemble.
 
 ## Stack
 
-- **Expo SDK 57** + **React Native** + **TypeScript** (strict)
+- **Expo SDK 56** + **React Native** + **TypeScript** (strict)
 - **expo-router** — file-based navigation, bottom tabs + pushed event detail
 - **Zustand** — state management, persisted through a repository abstraction
 - **AsyncStorage** — offline-first storage (v1); swappable for cloud sync later
@@ -107,7 +107,7 @@ sync later, implement the same interface (e.g. `SupabaseRepository`) and swap it
 - **Swipe-to-delete confirmation**: swiping reveals a delete affordance; tapping it opens
   a native `Alert.alert` confirm before anything is actually deleted. Nothing is ever
   removed on a bare swipe.
-- **CSV export** uses the SDK 57 class-based `expo-file-system` API
+- **CSV export** uses the modern class-based `expo-file-system` API
   (`new File(Paths.cache, ...)`) + `expo-sharing`, since the legacy
   `FileSystem.writeAsStringAsync` throws at runtime on this SDK.
 - **Light mode**: the token/palette architecture supports it automatically via
