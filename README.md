@@ -9,10 +9,13 @@ to fit any band or ensemble.
 
 ## Stack
 
-- **Expo SDK 56** + **React Native** + **TypeScript** (strict)
+- **Expo SDK 54** + **React Native** + **TypeScript** (strict) — pinned to match whatever
+  SDK version your Expo Go client actually supports; see "Expo Go version mismatches" below
 - **expo-router** — file-based navigation, bottom tabs + pushed event detail
 - **Zustand** — state management, persisted through a repository abstraction
-- **AsyncStorage** — offline-first storage (v1); swappable for cloud sync later
+- **Supabase** — optional cloud sync (Postgres + Auth), so a whole band shares one dataset
+  across devices; falls back to **AsyncStorage**-only (offline, single-device) when not
+  configured — see "Cloud sync" below
 - **react-native-reanimated** + **react-native-gesture-handler** — sheet animations, layout
   transitions, swipe-to-delete
 - **Jest** — full unit coverage of the money-math domain layer
@@ -27,15 +30,30 @@ npx expo start
 Scan the QR code with **Expo Go** on your iPhone/Android device, or press `i` / `a` in the
 terminal for a simulator/emulator.
 
+### Expo Go version mismatches
+
+Expo Go only supports one (sometimes two) SDK version(s) at a time, and the App Store
+build occasionally lags behind what `expo.dev` lists as "latest." If you see *"Project is
+incompatible with this version of Expo Go,"* check what SDK your installed Expo Go client
+reports and align the project to it:
+
+```bash
+npm install expo@<matching-major>
+npx expo install --fix
+npm install   # re-resolve @react-native/jest-preset / jest-expo / typescript by hand if
+              # expo install --fix didn't touch them — versions must match react-native's
+```
+
 ## Testing
 
 ```bash
 npm test
 ```
 
-28 tests cover the full event balance waterfall, the shared-cost pot, annual report
-aggregation, data migration, and CSV export — including edge cases (zero members, zero
-events, negative net payout, an empty pot, and a zero contribution setting).
+31 tests cover the full event balance waterfall, the shared-cost pot, annual report
+aggregation, data/schema migration, the offline-cache fallback, and CSV export — including
+edge cases (zero members, zero events, negative net payout, an empty pot, a zero
+contribution setting, and a failed cloud sync).
 
 ## Domain rules
 
@@ -96,14 +114,68 @@ src/
   sheets/                  one bottom-sheet form per data-entry flow (income, expense,
                             admin work, new event, yearly cost item)
   hooks/                   memoized selectors combining the store with domain/calc.ts
+  lib/supabase.ts          Supabase client (no-ops gracefully if unconfigured)
+  screens/                 SignInScreen, BandSetupScreen — auth/band UI, not routed
 ```
 
 ### Storage is swappable
 
 `DataRepository` (`src/store/repository.ts`) is the only thing the store talks to for
-persistence. `asyncStorageRepository.ts` is the offline v1 implementation. To add cloud
-sync later, implement the same interface (e.g. `SupabaseRepository`) and swap it in
-`useStore.ts` — no changes needed anywhere else, including every screen and sheet.
+persistence — `load()` / `save()` on the whole `AppData` blob. `useStore.hydrate(repository?)`
+decides which one is active; not passing one re-hydrates from whatever's already active
+(that's what pull-to-refresh does). Three implementations exist today:
+
+- `asyncStorageRepository.ts` — local-only, used when Supabase isn't configured or the
+  user taps "skip" on sign-in
+- `supabaseRepository.ts` — `createSupabaseRepository(bandId)`, a whole-blob upsert against
+  the `band_data` table for one band
+- `cachedCloudRepository.ts` — `withOfflineCache(cloud)` wraps any cloud repository with an
+  AsyncStorage cache: reads prefer the cloud but fall back to the last sync when offline;
+  writes always land locally first, then best-effort push to the cloud
+
+## Cloud sync (Supabase)
+
+A whole band can share one dataset across every member's phone instead of each device
+having its own isolated copy. This is **optional** — without `.env.local` configured
+(see below), the app behaves exactly like v1: local-only, no sign-in, no network calls.
+
+### How it works
+
+1. **Sign in** with an email + one-time 6-digit code (no passwords, no magic-link deep
+   linking to configure).
+2. **Create a band** (becomes its first member) or **join one** with an invite code from a
+   bandmate — shown and shareable from the Band tab once synced.
+3. All app data for that band lives in one `band_data.data` JSON column in Postgres —
+   the exact same `AppData` shape the local repository already used, so no screen or
+   domain-logic change was needed to add this.
+4. **Row-Level Security** restricts every table to members of that specific band
+   (`supabase/migrations/20260709150000_bands_and_data.sql`); creating/joining a band goes
+   through `SECURITY DEFINER` Postgres functions (`create_band`, `join_band_by_code`)
+   since there's no membership row to check against yet at that exact moment.
+5. Sync is **whole-blob, last-write-wins** — simple and fine for a handful of people who
+   rarely edit at the exact same second. It is *not* conflict-safe for true simultaneous
+   edits; a future upgrade path is per-row realtime writes instead of one JSON blob per band.
+
+### Setting it up yourself
+
+```bash
+npm install -g supabase   # if you don't have it
+supabase login
+supabase projects create band-manager-pro --org-id <your-org-id> --region eu-central-1 --db-password <generate one>
+supabase link --project-ref <project-ref>
+supabase db push --linked   # applies supabase/migrations/*.sql
+```
+
+Then create `.env.local` (gitignored — never commit real keys) in the project root:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<the publishable/anon key from the Supabase dashboard>
+```
+
+Both are safe to embed client-side by design (that's what Row-Level Security is for) — but
+still keep `.env.local` out of git so your project ref isn't casually public. For EAS
+builds, set the same two as EAS secrets/env vars rather than relying on a local file.
 
 ## Product decisions (undocumented in the brief, decided here)
 

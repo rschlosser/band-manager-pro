@@ -4,11 +4,27 @@ import { DEFAULT_CONTRIBUTION_PER_EVENT } from "../domain/constants";
 import { uid } from "../domain/format";
 import { AdminItem, AppData, Expense, Income, YearlyCostItem } from "../domain/types";
 import { asyncStorageRepository } from "./asyncStorageRepository";
+import { DataRepository } from "./repository";
 import { seedData } from "./seedData";
+
+// The repository currently backing the store. Defaults to local-only
+// storage; the root layout swaps this for a cloud repository once the user
+// has signed in and selected a band (see hydrate()).
+let activeRepository: DataRepository = asyncStorageRepository;
+
+function isEmptyData(data: AppData): boolean {
+  return data.members.length === 0 && data.events.length === 0 && data.yearly.items.length === 0;
+}
 
 type StoreState = AppData & {
   hydrated: boolean;
-  hydrate: () => Promise<void>;
+  /**
+   * Loads from `repository` (default: local storage) and makes it the store's
+   * active repository, so subsequent writes go there too. Passing a new
+   * repository re-hydrates even if already hydrated — that's how switching
+   * from local-only to a synced band works after sign-in.
+   */
+  hydrate: (repository?: DataRepository) => Promise<void>;
 
   addMember: (name: string) => void;
   deleteMember: (id: string) => void;
@@ -41,16 +57,20 @@ export const useStore = create<StoreState>()((set, get) => ({
   ...emptyData(),
   hydrated: false,
 
-  hydrate: async () => {
-    if (get().hydrated) return;
-    let data = await asyncStorageRepository.load();
-    // TEMPORARY: seed demo data on a completely empty install, persisting it
-    // immediately so it survives once this block is removed again.
-    if (!data || (data.members.length === 0 && data.events.length === 0 && data.yearly.items.length === 0)) {
+  hydrate: async (repository) => {
+    // No repository passed means "reload from whatever is currently active"
+    // (e.g. pull-to-refresh) rather than resetting to local-only storage.
+    const targetRepository = repository ?? activeRepository;
+    activeRepository = targetRepository;
+    set({ hydrated: false });
+    let data = await targetRepository.load();
+    // Demo seed only applies to the local, pre-sign-in experience — a freshly
+    // created cloud band should start genuinely empty, not with Anna/Ben/Clara.
+    if (targetRepository === asyncStorageRepository && (!data || isEmptyData(data))) {
       data = seedData();
-      await asyncStorageRepository.save(data);
+      await targetRepository.save(data);
     }
-    set({ ...data, hydrated: true });
+    set({ ...(data ?? { members: [], events: [], yearly: { items: [], contributionPerEvent: DEFAULT_CONTRIBUTION_PER_EVENT } }), hydrated: true });
   },
 
   addMember: (name) => {
@@ -137,5 +157,5 @@ useStore.subscribe((state, prevState) => {
   if (state.members === prevState.members && state.events === prevState.events && state.yearly === prevState.yearly) {
     return;
   }
-  asyncStorageRepository.save({ members: state.members, events: state.events, yearly: state.yearly });
+  activeRepository.save({ members: state.members, events: state.events, yearly: state.yearly });
 });
