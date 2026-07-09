@@ -91,9 +91,9 @@ export default function EventDetailScreen() {
             color={colors.red}
           />
           <Row
-            label="Yearly cost share"
-            value={"−" + fmtCHF(balance.yearlyCostShare)}
-            numericValue={balance.yearlyCostShare}
+            label="Shared cost pot"
+            value={"−" + fmtCHF(balance.costContribution)}
+            numericValue={balance.costContribution}
             formatter={(n) => "−" + fmtCHF(n)}
             color={colors.red}
           />

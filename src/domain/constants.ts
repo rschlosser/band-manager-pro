@@ -10,4 +10,5 @@ export const ADMIN_WORK_TYPES = ["Marketing", "Organization", "Other"] as const;
 
 export const STORAGE_KEY = "band-manager-pro/data/v1";
 
-export const DEFAULT_DISTRIBUTE_OVER_EVENTS = 10;
+/** Default fixed CHF amount each event contributes to the shared cost pot. */
+export const DEFAULT_CONTRIBUTION_PER_EVENT = 50;

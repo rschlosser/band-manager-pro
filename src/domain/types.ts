@@ -36,6 +36,13 @@ export type BandEvent = {
   incomes: Income[];
   expenses: Expense[];
   adminItems: AdminItem[];
+  /**
+   * This event's contribution to the shared cost pot, locked in when the
+   * event is created (min of the configured per-event contribution and the
+   * pot's outstanding balance at that moment). Later purchases never change
+   * an already-created event.
+   */
+  costContribution: number;
 };
 
 export type YearlyCostItem = {
@@ -48,7 +55,8 @@ export type YearlyCostItem = {
 
 export type YearlySettings = {
   items: YearlyCostItem[];
-  distributeOverEvents: number;
+  /** Fixed CHF amount each new event contributes to the shared cost pot. */
+  contributionPerEvent: number;
 };
 
 export type AppData = {
@@ -61,7 +69,7 @@ export type AppData = {
 export type EventBalance = {
   income: number;
   expenses: number;
-  yearlyCostShare: number;
+  costContribution: number;
   subtotal: number;
   donation: number;
   adminCompensation: number;

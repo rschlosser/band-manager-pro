@@ -1,8 +1,10 @@
 import { create } from "zustand";
-import { DEFAULT_DISTRIBUTE_OVER_EVENTS } from "../domain/constants";
+import { contributionForNewEvent } from "../domain/calc";
+import { DEFAULT_CONTRIBUTION_PER_EVENT } from "../domain/constants";
 import { uid } from "../domain/format";
 import { AdminItem, AppData, Expense, Income, YearlyCostItem } from "../domain/types";
 import { asyncStorageRepository } from "./asyncStorageRepository";
+import { seedData } from "./seedData";
 
 type StoreState = AppData & {
   hydrated: boolean;
@@ -26,13 +28,13 @@ type StoreState = AppData & {
 
   addYearlyItem: (item: Omit<YearlyCostItem, "id">) => void;
   deleteYearlyItem: (id: string) => void;
-  setDistributeOverEvents: (n: number) => void;
+  setContributionPerEvent: (amount: number) => void;
 };
 
 const emptyData = (): AppData => ({
   members: [],
   events: [],
-  yearly: { items: [], distributeOverEvents: DEFAULT_DISTRIBUTE_OVER_EVENTS },
+  yearly: { items: [], contributionPerEvent: DEFAULT_CONTRIBUTION_PER_EVENT },
 });
 
 export const useStore = create<StoreState>()((set, get) => ({
@@ -41,8 +43,14 @@ export const useStore = create<StoreState>()((set, get) => ({
 
   hydrate: async () => {
     if (get().hydrated) return;
-    const data = await asyncStorageRepository.load();
-    set({ ...(data ?? emptyData()), hydrated: true });
+    let data = await asyncStorageRepository.load();
+    // TEMPORARY: seed demo data on a completely empty install, persisting it
+    // immediately so it survives once this block is removed again.
+    if (!data || (data.members.length === 0 && data.events.length === 0 && data.yearly.items.length === 0)) {
+      data = seedData();
+      await asyncStorageRepository.save(data);
+    }
+    set({ ...data, hydrated: true });
   },
 
   addMember: (name) => {
@@ -57,7 +65,17 @@ export const useStore = create<StoreState>()((set, get) => ({
     set((s) => ({
       events: [
         ...s.events,
-        { id, name: name.trim(), date, memberIds, incomes: [], expenses: [], adminItems: [] },
+        {
+          id,
+          name: name.trim(),
+          date,
+          memberIds,
+          incomes: [],
+          expenses: [],
+          adminItems: [],
+          // Locked in at creation: later purchases never change this event.
+          costContribution: contributionForNewEvent(s.yearly, s.events),
+        },
       ],
     }));
     return id;
@@ -109,8 +127,8 @@ export const useStore = create<StoreState>()((set, get) => ({
     set((s) => ({ yearly: { ...s.yearly, items: [...s.yearly.items, { ...item, id: uid() }] } })),
   deleteYearlyItem: (id) =>
     set((s) => ({ yearly: { ...s.yearly, items: s.yearly.items.filter((i) => i.id !== id) } })),
-  setDistributeOverEvents: (n) =>
-    set((s) => ({ yearly: { ...s.yearly, distributeOverEvents: Math.max(1, Math.round(n) || 1) } })),
+  setContributionPerEvent: (amount) =>
+    set((s) => ({ yearly: { ...s.yearly, contributionPerEvent: Math.max(0, amount) || 0 } })),
 }));
 
 // Persist to the repository whenever the domain data changes, once hydration has completed.

@@ -1,13 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEY } from "../domain/constants";
-import { AppData } from "../domain/types";
 import { DataRepository } from "./repository";
+import { migratePersistedData } from "./migrations";
 
 export const asyncStorageRepository: DataRepository = {
   async load() {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as AppData) : null;
+      return raw ? migratePersistedData(JSON.parse(raw)) : null;
     } catch {
       return null;
     }

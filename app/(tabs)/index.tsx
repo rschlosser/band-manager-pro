@@ -20,7 +20,7 @@ export default function OverviewScreen() {
     setRefreshing(false);
   };
 
-  const progress = data.distributeOverEvents > 0 ? data.eventsHeld / data.distributeOverEvents : 0;
+  const progress = data.totalYearlyCosts > 0 ? data.recovered / data.totalYearlyCosts : 0;
 
   return (
     <Screen>
@@ -87,11 +87,16 @@ export default function OverviewScreen() {
         </Card>
 
         <Card>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.txt, marginBottom: 4 }}>Yearly cost recovery</Text>
-          <Row label="Total yearly costs" value={fmtCHF(data.totalYearlyCosts)} numericValue={data.totalYearlyCosts} formatter={fmtCHF} />
-          <Row label="Share per event" value={fmtCHF(data.share)} numericValue={data.share} formatter={fmtCHF} />
-          <Row label="Events held" value={data.eventsHeld} />
-          <Row label="Events remaining to recover" value={data.remaining} color={colors.amber} bold />
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.txt, marginBottom: 4 }}>Shared cost pot</Text>
+          <Row label="Total costs this year" value={fmtCHF(data.totalYearlyCosts)} numericValue={data.totalYearlyCosts} formatter={fmtCHF} />
+          <Row
+            label="Contribution per event"
+            value={fmtCHF(data.contributionPerEvent)}
+            numericValue={data.contributionPerEvent}
+            formatter={fmtCHF}
+          />
+          <Row label="Still outstanding" value={fmtCHF(data.outstanding)} numericValue={data.outstanding} formatter={fmtCHF} color={colors.amber} bold />
+          <Row label="Events until recovered" value={data.remainingEvents === null ? "—" : data.remainingEvents} />
           <View style={{ marginTop: spacing.sm }}>
             <ProgressBar progress={progress} />
           </View>

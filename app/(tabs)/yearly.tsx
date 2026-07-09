@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Alert, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { Card, EmptyState, PrimaryButton, ProgressBar, Row, Screen, SwipeableRow } from "../../src/components";
-import { eventsRemainingToRecoverYearlyCosts, totalYearlyCosts, yearlyCostSharePerEvent } from "../../src/domain/calc";
+import { eventsRemainingToRecover, outstandingSharedCosts, totalYearlyCosts } from "../../src/domain/calc";
 import { fmtCHF } from "../../src/domain/format";
 import { YearlyItemSheet } from "../../src/sheets/YearlyItemSheet";
 import { useStore } from "../../src/store/useStore";
@@ -14,25 +14,25 @@ export default function YearlyScreen() {
   const yearly = useStore((s) => s.yearly);
   const events = useStore((s) => s.events);
   const deleteYearlyItem = useStore((s) => s.deleteYearlyItem);
-  const setDistributeOverEvents = useStore((s) => s.setDistributeOverEvents);
+  const setContributionPerEvent = useStore((s) => s.setContributionPerEvent);
   const hydrate = useStore((s) => s.hydrate);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [distributeInput, setDistributeInput] = useState(String(yearly.distributeOverEvents));
+  const [contributionInput, setContributionInput] = useState(String(yearly.contributionPerEvent));
   const [refreshing, setRefreshing] = useState(false);
 
   const total = totalYearlyCosts(yearly);
-  const share = yearlyCostSharePerEvent(yearly);
-  const remaining = eventsRemainingToRecoverYearlyCosts(yearly, events.length);
-  const progress = yearly.distributeOverEvents > 0 ? events.length / yearly.distributeOverEvents : 0;
+  const outstanding = outstandingSharedCosts(yearly, events);
+  const remaining = eventsRemainingToRecover(yearly, events);
+  const progress = total > 0 ? (total - outstanding) / total : 0;
 
-  const commitDistribute = () => {
-    const n = parseInt(distributeInput, 10);
-    setDistributeOverEvents(Number.isNaN(n) ? 1 : n);
+  const commitContribution = () => {
+    const amount = parseFloat(contributionInput);
+    setContributionPerEvent(Number.isNaN(amount) ? 0 : amount);
   };
 
   const confirmDelete = (id: string, description: string) => {
-    Alert.alert(`Delete "${description}"?`, "This cost item will be removed from the yearly total.", [
+    Alert.alert(`Delete "${description}"?`, "This cost item will be removed from the shared cost pot.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => deleteYearlyItem(id) },
     ]);
@@ -51,20 +51,20 @@ export default function YearlyScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.acc} />}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={{ ...typography.title, color: colors.txt }}>Yearly costs</Text>
+          <Text style={{ ...typography.title, color: colors.txt }}>Shared costs</Text>
           <PrimaryButton compact title="New" icon="add" onPress={() => setSheetOpen(true)} />
         </View>
 
         <Card>
           <Text style={{ ...typography.label, color: colors.sub, marginBottom: spacing.xs + 2 }}>
-            DISTRIBUTE TOTAL COSTS OVER HOW MANY EVENTS?
+            CONTRIBUTION PER EVENT (CHF)
           </Text>
           <TextInput
-            keyboardType="number-pad"
-            value={distributeInput}
-            onChangeText={setDistributeInput}
-            onEndEditing={commitDistribute}
-            onSubmitEditing={commitDistribute}
+            keyboardType="decimal-pad"
+            value={contributionInput}
+            onChangeText={setContributionInput}
+            onEndEditing={commitContribution}
+            onSubmitEditing={commitContribution}
             style={{
               backgroundColor: colors.card2,
               borderWidth: 1,
@@ -77,15 +77,23 @@ export default function YearlyScreen() {
               marginBottom: spacing.sm,
             }}
           />
-          <Row label="Total yearly costs" value={fmtCHF(total)} numericValue={total} formatter={fmtCHF} bold />
-          <Row label="Share per event" value={fmtCHF(share)} numericValue={share} formatter={fmtCHF} color={colors.acc} />
-          <Row label="Events still needed" value={remaining} color={colors.amber} bold />
+          <Row label="Total costs this year" value={fmtCHF(total)} numericValue={total} formatter={fmtCHF} bold />
+          <Row label="Still outstanding" value={fmtCHF(outstanding)} numericValue={outstanding} formatter={fmtCHF} color={colors.amber} bold />
+          <Row
+            label="Events until recovered"
+            value={remaining === null ? "—" : remaining}
+            color={colors.acc}
+          />
           <View style={{ marginTop: spacing.sm }}>
             <ProgressBar progress={progress} />
           </View>
+          <Text style={{ fontSize: 12, color: colors.sub, marginTop: spacing.sm }}>
+            Every new event pays this fixed amount into the pot until it is settled. Purchases added later simply extend
+            the pot — past events never change.
+          </Text>
         </Card>
 
-        {yearly.items.length === 0 && <EmptyState icon="repeat-outline" text="No yearly cost items yet" />}
+        {yearly.items.length === 0 && <EmptyState icon="repeat-outline" text="No shared cost items yet" />}
 
         {yearly.items.map((item) => {
           const paidBy = members.find((m) => m.id === item.paidByMemberId)?.name ?? "?";

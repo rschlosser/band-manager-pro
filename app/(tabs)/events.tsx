@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from "react-native-reanimated";
 import { Card, EmptyState, PrimaryButton, Screen } from "../../src/components";
-import { calcEventBalance, yearlyCostSharePerEvent } from "../../src/domain/calc";
+import { calcEventBalance } from "../../src/domain/calc";
 import { fmtCHF } from "../../src/domain/format";
 import { NewEventSheet } from "../../src/sheets/NewEventSheet";
 import { useStore } from "../../src/store/useStore";
@@ -13,14 +13,12 @@ import { useTheme } from "../../src/theme";
 export default function EventsScreen() {
   const { colors, radii, spacing, typography } = useTheme();
   const events = useStore((s) => s.events);
-  const yearly = useStore((s) => s.yearly);
   const hydrate = useStore((s) => s.hydrate);
   const router = useRouter();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const share = yearlyCostSharePerEvent(yearly);
   const sorted = [...events].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   const onRefresh = async () => {
@@ -43,7 +41,7 @@ export default function EventsScreen() {
         {sorted.length === 0 && <EmptyState icon="calendar-outline" text="No events yet. Create your first Kirtan event." />}
 
         {sorted.map((event) => {
-          const balance = calcEventBalance(event, share);
+          const balance = calcEventBalance(event);
           return (
             <Animated.View key={event.id} entering={FadeInDown.springify().damping(16)} exiting={FadeOutUp} layout={LinearTransition}>
               <Pressable onPress={() => router.push(`/event/${event.id}`)}>

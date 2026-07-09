@@ -16,26 +16,52 @@ export function totalYearlyCosts(yearly: YearlySettings): number {
   return sumAmounts(yearly.items);
 }
 
-/** Each event carries an equal share of yearly costs, spread over N events. */
-export function yearlyCostSharePerEvent(yearly: YearlySettings): number {
-  if (yearly.distributeOverEvents <= 0) return 0;
-  return totalYearlyCosts(yearly) / yearly.distributeOverEvents;
+/** Sum of the cost-pot contributions already locked into existing events. */
+export function contributedSoFar(events: BandEvent[]): number {
+  return events.reduce((s, e) => s + e.costContribution, 0);
 }
 
-export function eventsRemainingToRecoverYearlyCosts(yearly: YearlySettings, eventsHeld: number): number {
-  return Math.max(0, yearly.distributeOverEvents - eventsHeld);
+/**
+ * The shared cost pot's open balance: everything purchased minus everything
+ * events have already contributed. Never negative — deleting cost items after
+ * events contributed simply means the pot is settled.
+ */
+export function outstandingSharedCosts(yearly: YearlySettings, events: BandEvent[]): number {
+  return Math.max(0, totalYearlyCosts(yearly) - contributedSoFar(events));
+}
+
+/**
+ * What a newly created event contributes to the pot: the configured fixed
+ * amount, capped at whatever is still outstanding (an empty pot means no
+ * deduction at all).
+ */
+export function contributionForNewEvent(yearly: YearlySettings, events: BandEvent[]): number {
+  return Math.min(Math.max(0, yearly.contributionPerEvent), outstandingSharedCosts(yearly, events));
+}
+
+/**
+ * How many more events (at the configured contribution) it takes to pay off
+ * the pot. Null when the contribution is 0 but costs are still outstanding —
+ * the pot will never be recovered at that rate.
+ */
+export function eventsRemainingToRecover(yearly: YearlySettings, events: BandEvent[]): number | null {
+  const outstanding = outstandingSharedCosts(yearly, events);
+  if (outstanding <= 0) return 0;
+  if (yearly.contributionPerEvent <= 0) return null;
+  return Math.ceil(outstanding / yearly.contributionPerEvent);
 }
 
 /**
  * Event balance waterfall, in display order:
- * income -> - expenses -> - yearly cost share -> subtotal
+ * income -> - expenses -> - cost pot contribution -> subtotal
  * -> - donation (10% of income) -> - admin compensation -> net payout
  * -> split equally among participating members.
  */
-export function calcEventBalance(event: BandEvent, yearlyShare: number): EventBalance {
+export function calcEventBalance(event: BandEvent): EventBalance {
   const income = sumAmounts(event.incomes);
   const expenses = sumAmounts(event.expenses);
-  const subtotal = income - expenses - yearlyShare;
+  const costContribution = event.costContribution;
+  const subtotal = income - expenses - costContribution;
   const donation = income * DONATION_RATE;
   const adminCompensation = event.adminItems.reduce((s, a) => s + a.hours * ADMIN_HOURLY_RATE, 0);
   const netPayout = subtotal - donation - adminCompensation;
@@ -45,7 +71,7 @@ export function calcEventBalance(event: BandEvent, yearlyShare: number): EventBa
   return {
     income,
     expenses,
-    yearlyCostShare: yearlyShare,
+    costContribution,
     subtotal,
     donation,
     adminCompensation,
@@ -55,11 +81,11 @@ export function calcEventBalance(event: BandEvent, yearlyShare: number): EventBa
   };
 }
 
-export function calcTotals(events: BandEvent[], yearlyShare: number): { totalIncome: number; totalDonations: number } {
+export function calcTotals(events: BandEvent[]): { totalIncome: number; totalDonations: number } {
   let totalIncome = 0;
   let totalDonations = 0;
   for (const event of events) {
-    const balance = calcEventBalance(event, yearlyShare);
+    const balance = calcEventBalance(event);
     totalIncome += balance.income;
     totalDonations += balance.donation;
   }
@@ -67,7 +93,6 @@ export function calcTotals(events: BandEvent[], yearlyShare: number): { totalInc
 }
 
 export function calcAnnualReport(members: Member[], events: BandEvent[], yearly: YearlySettings): AnnualReport {
-  const share = yearlyCostSharePerEvent(yearly);
   const rowMap = new Map<string, MemberReportRow>();
   for (const member of members) {
     rowMap.set(member.id, {
@@ -84,7 +109,7 @@ export function calcAnnualReport(members: Member[], events: BandEvent[], yearly:
   let totalIncome = 0;
 
   for (const event of events) {
-    const balance = calcEventBalance(event, share);
+    const balance = calcEventBalance(event);
     totalDonations += balance.donation;
     totalIncome += balance.income;
 

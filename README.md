@@ -33,17 +33,27 @@ terminal for a simulator/emulator.
 npm test
 ```
 
-17 tests cover the full event balance waterfall, yearly-cost sharing, annual report
-aggregation, and CSV export — including edge cases (zero members, zero events, negative
-net payout, divide-by-zero on the yearly distribution setting).
+28 tests cover the full event balance waterfall, the shared-cost pot, annual report
+aggregation, data migration, and CSV export — including edge cases (zero members, zero
+events, negative net payout, an empty pot, and a zero contribution setting).
 
 ## Domain rules
+
+**Shared cost pot** — recurring/equipment costs are amortized across events:
+
+- Every purchase is added to a shared **pot** (its outstanding balance).
+- Each **new event contributes a fixed CHF amount** (configurable, default 50) to the
+  pot — capped at what's still outstanding, so contributions stop automatically once
+  the pot is settled.
+- The contribution is **locked in when the event is created**. Purchases added later
+  grow the pot and extend the runway, but **never change past events** — important
+  because events are paid out right after they happen.
 
 **Event balance sheet** (waterfall, in this exact order):
 
 1. Income
 2. − Expenses
-3. − Yearly cost share (`total yearly costs / distribute-over-N-events`)
+3. − Shared cost pot contribution (locked in at event creation)
 4. = Subtotal
 5. − Donation — **10% of income**, deducted before member payout
 6. − Admin work compensation — **CHF 20/hour** (`ADMIN_HOURLY_RATE` in
