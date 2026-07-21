@@ -42,7 +42,7 @@ export function SignInScreen({ onSkip }: { onSkip: () => void }) {
           <Text style={{ ...typography.title, color: colors.txt, marginBottom: spacing.xs }}>Band Manager Pro</Text>
           <Text style={{ fontSize: 14, color: colors.sub, marginBottom: spacing.lg }}>
             {codeSent
-              ? `Enter the 6-digit code we sent to ${email}.`
+              ? `Enter the code we sent to ${email}. Look for the number in the email — not the "Sign in" link.`
               : "Sign in with your email — no password, just a one-time code."}
           </Text>
 
@@ -63,8 +63,8 @@ export function SignInScreen({ onSkip }: { onSkip: () => void }) {
           {codeSent && (
             <>
               <TextField
-                label="6-DIGIT CODE"
-                placeholder="123456"
+                label="CODE FROM THE EMAIL"
+                placeholder="12345678"
                 keyboardType="number-pad"
                 value={codeInput}
                 onChangeText={setCodeInput}
