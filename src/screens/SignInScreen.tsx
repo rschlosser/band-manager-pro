@@ -11,10 +11,12 @@ export function SignInScreen({ onSkip }: { onSkip: () => void }) {
   const error = useAuthStore((s) => s.error);
   const sendCode = useAuthStore((s) => s.sendCode);
   const verifyCode = useAuthStore((s) => s.verifyCode);
+  const cancelCodeEntry = useAuthStore((s) => s.cancelCodeEntry);
 
   const [emailInput, setEmailInput] = useState("");
   const [codeInput, setCodeInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   const codeSent = status === "codeSent";
 
@@ -30,6 +32,21 @@ export function SignInScreen({ onSkip }: { onSkip: () => void }) {
     setSending(true);
     await verifyCode(codeInput.trim());
     setSending(false);
+  };
+
+  const handleResend = async () => {
+    if (!email) return;
+    setSending(true);
+    setResent(false);
+    await sendCode(email);
+    setSending(false);
+    setResent(true);
+  };
+
+  const handleChangeEmail = () => {
+    setCodeInput("");
+    setResent(false);
+    cancelCodeEntry();
   };
 
   return (
@@ -70,6 +87,20 @@ export function SignInScreen({ onSkip }: { onSkip: () => void }) {
                 onChangeText={setCodeInput}
               />
               <PrimaryButton title="Verify" onPress={handleVerify} disabled={sending || !codeInput.trim()} />
+
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: spacing.lg, marginTop: spacing.md }}>
+                <Pressable onPress={handleResend} disabled={sending} hitSlop={8}>
+                  <Text style={{ color: colors.acc, fontSize: 13, fontWeight: "600" }}>Resend code</Text>
+                </Pressable>
+                <Pressable onPress={handleChangeEmail} hitSlop={8}>
+                  <Text style={{ color: colors.sub, fontSize: 13 }}>Change email</Text>
+                </Pressable>
+              </View>
+              {resent && !error && (
+                <Text style={{ color: colors.green, fontSize: 12, textAlign: "center", marginTop: spacing.xs }}>
+                  New code sent to {email}.
+                </Text>
+              )}
             </>
           )}
 

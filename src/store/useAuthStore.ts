@@ -22,6 +22,8 @@ type AuthState = {
   createBand: (name: string) => Promise<void>;
   joinBand: (inviteCode: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Back out of code entry to the email step, e.g. to fix a typo'd address. */
+  cancelCodeEntry: () => void;
 };
 
 async function loadBandForCurrentUser(): Promise<Band | null> {
@@ -112,6 +114,10 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
     const row = data as { id: string; name: string; invite_code: string };
     set({ band: { id: row.id, name: row.name, inviteCode: row.invite_code }, status: "ready" });
+  },
+
+  cancelCodeEntry: () => {
+    set({ status: "signedOut", email: null, error: null });
   },
 
   signOut: async () => {
