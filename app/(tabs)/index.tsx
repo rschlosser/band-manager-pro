@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
-import { AnimatedNumber, Card, ProgressBar, Row, Screen } from "../../src/components";
+import { AnimatedNumber, Card, CloudSyncCard, ProgressBar, Row, Screen } from "../../src/components";
 import { fmtCHF } from "../../src/domain/format";
 import { useOverviewData } from "../../src/hooks/useDerivedData";
+import { isSupabaseConfigured } from "../../src/lib/supabase";
 import { useStore } from "../../src/store/useStore";
 import { useTheme } from "../../src/theme";
 
@@ -40,6 +41,8 @@ export default function OverviewScreen() {
             <Text style={{ fontSize: 12, color: colors.sub }}>Kirtan Singing Circle</Text>
           </View>
         </View>
+
+        {isSupabaseConfigured && <CloudSyncCard />}
 
         <Card
           backgroundColor={colors.scheme === "dark" ? "#1d1435" : "#f3edff"}

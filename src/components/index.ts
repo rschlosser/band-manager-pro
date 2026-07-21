@@ -3,6 +3,7 @@ export { BackgroundGlow } from "./BackgroundGlow";
 export { IconButton, PrimaryButton } from "./Button";
 export { Card } from "./Card";
 export { Chip } from "./Chip";
+export { CloudSyncCard } from "./CloudSyncCard";
 export { EmptyState } from "./EmptyState";
 export { ProgressBar } from "./ProgressBar";
 export { Row } from "./Row";
